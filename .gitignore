@@ -1,0 +1,4 @@
+raw_orders.csv
+analytics.db
+__pycache__/
+*.pyc
