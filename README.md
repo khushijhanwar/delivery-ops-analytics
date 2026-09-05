@@ -5,8 +5,7 @@ order events -> validated ELT into canonical fact/dimension tables in a SQL
 warehouse (SQLite standing in for a warehouse) -> data quality checks ->
 a self-serve Streamlit dashboard.
 
-Built to mirror the core workflow of an Analytics Engineer: turn raw,
-messy operational data into trusted, canonical datasets that support
+Turn raw, messy operational data into trusted, canonical datasets that support
 decision-making, with data integrity checks and dashboarding on top.
 
 ## Architecture
