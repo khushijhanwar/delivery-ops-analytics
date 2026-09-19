@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery Ops Analytics — messy events to trustworthy data</title>
+<meta name="description" content="A SQL-based ELT pipeline, automated data quality checks, and a self-serve dashboard for turning messy raw delivery event data into trustworthy analytics.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#fff5f5; --panel:#ffffff; --line:#f0d8d8; --line-soft:#f7e6e6;
+    --text:#20100f; --text-dim:#7a5a58; --text-faint:#b98d8b;
+    --red-deep:#7f1116; --red:#c81e2c; --red-bright:#ef3f45; --red-pale:#ff8a80;
+    --ombre: linear-gradient(120deg, var(--red-deep), var(--red) 45%, var(--red-bright) 75%, var(--red-pale));
+    --mono:'JetBrains Mono', ui-monospace, monospace; --sans:'Space Grotesk', system-ui, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0; color:var(--text); font-family:var(--sans); line-height:1.5; -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1100px 520px at 8% -8%, rgba(200,30,44,0.14), transparent 60%),
+      radial-gradient(900px 480px at 105% 8%, rgba(255,138,128,0.16), transparent 55%),
+      var(--bg);
+  }
+  ::selection{ background:var(--red); color:#fff; }
+  a{ color:var(--red); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  a:focus-visible, button:focus-visible{ outline:2px solid var(--red); outline-offset:2px; }
+  .wrap{ max-width:1040px; margin:0 auto; padding:0 26px; }
+  code, pre, .mono{ font-family:var(--mono); }
+
+  .ombre-text{
+    background:var(--ombre); -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+
+  header{ position:sticky; top:0; z-index:20; background:rgba(255,255,255,0.82); backdrop-filter:blur(10px); border-bottom:1px solid var(--line-soft); }
+  .nav{ display:flex; align-items:center; justify-content:space-between; padding:16px 26px; }
+  .brand{ display:flex; align-items:center; gap:10px; font-weight:600; }
+  .brand .dot{ width:10px; height:10px; border-radius:3px; background:var(--ombre); transform:rotate(45deg); }
+  .navlinks{ display:flex; gap:26px; font-size:14px; color:var(--text-dim); }
+  .navlinks a{ color:var(--text-dim); }
+  .navlinks a:hover{ color:var(--red); text-decoration:none; }
+  @media (max-width:680px){ .navlinks{ display:none; } }
+  .gh-btn{
+    display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px;
+    padding:7px 14px; color:var(--text) !important; font-size:13px; font-family:var(--mono);
+  }
+  .gh-btn:hover{ border-color:var(--red); text-decoration:none; }
+
+  .hero{ padding:76px 0 50px; }
+  .hero-grid{ display:grid; grid-template-columns:1.1fr 1fr; gap:50px; align-items:start; }
+  @media (max-width:880px){ .hero-grid{ grid-template-columns:1fr; } }
+  .badge{
+    display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:999px;
+    padding:5px 12px; font-family:var(--mono); font-size:12.5px; color:var(--text-dim); margin-bottom:24px;
+    background:var(--bg-soft);
+  }
+  .badge .led{ width:6px; height:6px; border-radius:50%; background:var(--red-bright); box-shadow:0 0 8px var(--red-bright); }
+  h1{ font-size:clamp(2.1rem, 4.2vw, 3rem); line-height:1.1; letter-spacing:-.01em; margin:0 0 20px; font-weight:700; }
+  .lede{ color:var(--text-dim); font-size:16.5px; max-width:48ch; margin:0 0 30px; }
+  .cta-row{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:40px; }
+  .btn{ font-family:var(--sans); font-weight:600; font-size:14.5px; padding:12px 22px; border-radius:7px; border:1px solid transparent; cursor:pointer; }
+  .btn-primary{ background:var(--ombre); color:#fff; box-shadow:0 10px 24px -10px rgba(200,30,44,0.55); }
+  .btn-primary:hover{ filter:brightness(1.06); text-decoration:none; }
+  .btn-secondary{ background:transparent; color:var(--text); border-color:var(--line); }
+  .btn-secondary:hover{ border-color:var(--red); color:var(--red); text-decoration:none; }
+  .statline{ display:flex; gap:32px; flex-wrap:wrap; border-top:1px solid var(--line-soft); padding-top:20px; }
+  .stat b{ display:block; font-size:22px; font-family:var(--mono); font-weight:700; font-variant-numeric:tabular-nums; }
+  .stat b.ombre-text{ display:inline-block; }
+  .stat span{ font-size:12.5px; color:var(--text-faint); }
+
+  .term{
+    background:#1a0a0a; border:1px solid #3a1414; border-radius:12px; overflow:hidden;
+    box-shadow:0 30px 70px -30px rgba(200,30,44,0.35);
+  }
+  .term-bar{ display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:1px solid #3a1414; background:#220d0d; }
+  .term-dot{ width:10px; height:10px; border-radius:50%; background:#4a2020; }
+  .term-title{ margin-left:6px; font-family:var(--mono); font-size:12px; color:#a56060; }
+  .term-body{ padding:20px; font-family:var(--mono); font-size:12.8px; min-height:260px; color:#e8c9c9; }
+  .term-body p{ margin:0 0 8px; white-space:pre-wrap; }
+  .term-body .prompt{ color:var(--red-bright); }
+  .term-body .out{ color:#c99; }
+  .term-body .ok{ color:#ff8a80; }
+
+  section{ padding:56px 0; border-top:1px solid var(--line-soft); }
+  .section-head{ margin-bottom:30px; max-width:60ch; }
+  .section-head h2{ font-size:1.45rem; font-weight:700; margin:0 0 8px; }
+  .section-head p{ color:var(--text-dim); margin:0; font-size:14.5px; }
+
+  .reveal{ opacity:0; transform:translateY(12px); transition:opacity .55s ease, transform .55s ease; }
+  .reveal.in{ opacity:1; transform:none; }
+  @media (prefers-reduced-motion:reduce){ .reveal{ opacity:1; transform:none; transition:none; } }
+
+  .diagram{ background:var(--bg-soft); border:1px solid var(--line); border-radius:12px; padding:22px; overflow-x:auto; }
+  .diagram pre{ margin:0; font-size:12.6px; line-height:1.7; color:var(--text-dim); min-width:420px; }
+  .diagram .node{ color:var(--text); font-weight:600; }
+  .diagram .tag{ color:var(--red); font-weight:600; }
+
+  .checks{ display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); gap:14px; }
+  .check{
+    border:1px solid var(--line); border-radius:10px; padding:16px; background:#fff;
+    border-top:3px solid transparent; border-image:var(--ombre) 1;
+  }
+  .check .cnum{ font-family:var(--mono); font-size:11px; color:var(--red); margin-bottom:6px; font-weight:600; }
+  .check .cname{ font-weight:700; font-size:14px; margin-bottom:4px; }
+  .check .cdesc{ font-size:13px; color:var(--text-dim); }
+
+  .results-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; }
+  .rstat{ border:1px solid var(--line); border-radius:12px; padding:20px; background:linear-gradient(160deg, #fff, var(--bg-soft)); }
+  .rstat b{ display:block; font-size:27px; font-family:var(--mono); font-variant-numeric:tabular-nums; margin-bottom:4px; font-weight:700; }
+  .rstat span{ font-size:12.5px; color:var(--text-faint); }
+
+  .codeblock{ background:#1a0a0a; border:1px solid #3a1414; border-radius:12px; overflow:hidden; }
+  .cb-head{ display:flex; justify-content:space-between; align-items:center; padding:9px 14px; border-bottom:1px solid #3a1414; background:#220d0d; }
+  .cb-head span{ font-family:var(--mono); font-size:12px; color:#a56060; }
+  .copy-btn{ font-family:var(--mono); font-size:11.5px; color:#c99; background:transparent; border:1px solid #4a2020; border-radius:4px; padding:3px 9px; cursor:pointer; }
+  .copy-btn:hover{ color:#fff; border-color:var(--red-bright); }
+  .codeblock pre{ margin:0; padding:16px 18px; font-size:12.6px; line-height:1.8; color:#e8c9c9; overflow-x:auto; }
+  .codeblock pre .c{ color:#8a5c5c; }
+
+  footer{ border-top:1px solid var(--line-soft); padding:36px 0 50px; }
+  .foot-row{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:18px; align-items:center; }
+  .topics{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .topics span{ font-family:var(--mono); font-size:11.5px; color:var(--text-faint); border:1px solid var(--line); border-radius:999px; padding:4px 10px; }
+  footer .fine{ color:var(--text-faint); font-size:13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav wrap">
+    <div class="brand"><span class="dot"></span> delivery-ops-analytics</div>
+    <nav class="navlinks">
+      <a href="#pipeline">Pipeline</a>
+      <a href="#quality">Data quality</a>
+      <a href="#results">Results</a>
+      <a href="#run">Run it</a>
+    </nav>
+    <a class="gh-btn" href="https://github.com/khushijhanwar/delivery-ops-analytics" target="_blank" rel="noopener">⭐ GitHub</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="border-top:none;">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="badge"><span class="led"></span> MIT licensed · SQLite, SQL, Streamlit</div>
+        <h1>Messy event data,<br>turned into <span class="ombre-text">numbers you can trust.</span></h1>
+        <p class="lede">A complete analytics engineering pipeline: raw delivery events go through SQL-based ELT into canonical fact/dimension tables, get validated by 7 automated data quality checks, and land in a self-serve dashboard — the full path from raw data to something a business team can act on.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/khushijhanwar/delivery-ops-analytics" target="_blank" rel="noopener">View source on GitHub</a>
+          <a class="btn btn-secondary" href="#run">Run it yourself →</a>
+        </div>
+        <div class="statline">
+          <div class="stat"><b class="ombre-text">19,960</b><span>clean rows from 20,100 raw</span></div>
+          <div class="stat"><b class="ombre-text">7/7</b><span>data quality checks passing</span></div>
+          <div class="stat"><b class="ombre-text">4</b><span>canonical fact/dim tables</span></div>
+        </div>
+      </div>
+      <div class="term">
+        <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">pipeline run</span></div>
+        <div class="term-body" id="bootTerm"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pipeline">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>Raw events → canonical tables</h2>
+        <p>SQL window functions and joins deduplicate and clean the data before anything downstream ever touches it.</p>
+      </div>
+      <div class="diagram reveal">
+<pre><span class="node">raw_orders.csv</span>  (raw, messy: duplicates, nulls, bad values)
+       │
+       ▼
+<span class="tag">elt_pipeline.py</span> — SQL transforms in SQLite
+       │
+       ▼
+<span class="node">dim_restaurant</span> · <span class="node">dim_date</span> · <span class="node">fact_orders</span> · <span class="node">mart_daily_region_metrics</span>
+       │
+       ├──► <span class="tag">data_quality_checks.py</span> — 7 automated checks
+       │
+       └──► <span class="tag">dashboard.py</span> — Streamlit, self-serve</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="quality">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>7 checks, run before anyone trusts the data</h2>
+        <p>Declarative expectations in the same spirit as Great Expectations or Pydeequ — CI-ready, exits non-zero on failure.</p>
+      </div>
+      <div class="checks reveal">
+        <div class="check"><div class="cnum">01</div><div class="cname">Uniqueness</div><div class="cdesc">order_id has no duplicates in fact_orders</div></div>
+        <div class="check"><div class="cnum">02</div><div class="cname">Referential integrity</div><div class="cdesc">every fact row joins to a valid dimension key</div></div>
+        <div class="check"><div class="cnum">03</div><div class="cname">Null-rate thresholds</div><div class="cdesc">key columns stay under an acceptable null %</div></div>
+        <div class="check"><div class="cnum">04</div><div class="cname">Plausible ranges</div><div class="cdesc">subtotals and delivery times fall in sane bounds</div></div>
+        <div class="check"><div class="cnum">05</div><div class="cname">No negative values</div><div class="cdesc">subtotals and quantities can't be negative</div></div>
+        <div class="check"><div class="cnum">06</div><div class="cname">Row-count sanity</div><div class="cdesc">cleaned volume falls within an expected range of raw</div></div>
+        <div class="check"><div class="cnum">07</div><div class="cname">Grain check</div><div class="cdesc">mart table has exactly one row per date + region</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>Results</h2>
+        <p>What the pipeline actually produces, end to end.</p>
+      </div>
+      <div class="results-grid reveal">
+        <div class="rstat"><b class="ombre-text">20,100</b><span>raw rows generated</span></div>
+        <div class="rstat"><b class="ombre-text">19,960</b><span>clean rows after dedup + filtering</span></div>
+        <div class="rstat"><b class="ombre-text">7/7</b><span>quality checks passing</span></div>
+        <div class="rstat"><b class="ombre-text">4</b><span>metrics on the dashboard</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="run">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <h2>Run it</h2>
+        <p>No warehouse account needed — SQLite stands in for Snowflake/BigQuery locally.</p>
+      </div>
+      <div class="codeblock reveal">
+        <div class="cb-head"><span>bash</span><button class="copy-btn" data-copy="pip install pandas numpy streamlit
+python3 generate_data.py
+python3 elt_pipeline.py
+python3 data_quality_checks.py
+streamlit run dashboard.py">copy</button></div>
+        <pre>pip install pandas numpy streamlit
+python3 generate_data.py        <span class="c"># ~20k raw rows, intentionally messy</span>
+python3 elt_pipeline.py         <span class="c"># builds analytics.db, canonical tables</span>
+python3 data_quality_checks.py  <span class="c"># 7 checks, exits 0 if all pass</span>
+streamlit run dashboard.py      <span class="c"># launches the self-serve dashboard</span></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="fine">MIT licensed · <a href="https://github.com/khushijhanwar/delivery-ops-analytics">github.com/khushijhanwar/delivery-ops-analytics</a></div>
+      <a class="btn btn-secondary" href="https://github.com/khushijhanwar/delivery-ops-analytics" target="_blank" rel="noopener">View repository</a>
+    </div>
+    <div class="topics"><span>sql</span><span>elt-pipeline</span><span>dataqualitycheck</span><span>canonical-data-model</span><span>streamlit</span><span>pydeequ</span></div>
+  </div>
+</footer>
+
+<script>
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.getAttribute('data-copy') || '');
+        const old = btn.textContent; btn.textContent = 'copied';
+        setTimeout(() => { btn.textContent = old; }, 1400);
+      } catch (e) {}
+    });
+  });
+
+  const revealEls = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window && !reduceMotion) {
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .15 });
+    revealEls.forEach(el => io.observe(el));
+  } else { revealEls.forEach(el => el.classList.add('in')); }
+
+  const bootLines = [
+    { t:'cmd', text:'$ python3 elt_pipeline.py' },
+    { t:'out', text:'[elt] loaded raw_orders.csv → 20,100 rows' },
+    { t:'out', text:'[elt] dedup on order_id → 19,960 rows' },
+    { t:'out', text:'[elt] built dim_restaurant, dim_date' },
+    { t:'out', text:'[elt] built fact_orders, mart_daily_region_metrics' },
+    { t:'gap' },
+    { t:'cmd', text:'$ python3 data_quality_checks.py' },
+    { t:'ok', text:'✓ uniqueness — order_id' },
+    { t:'ok', text:'✓ referential integrity' },
+    { t:'ok', text:'✓ null-rate thresholds' },
+    { t:'ok', text:'✓ plausible ranges' },
+    { t:'ok', text:'✓ no negative values' },
+    { t:'ok', text:'✓ row-count sanity' },
+    { t:'ok', text:'✓ grain check — 1 row/date/region' },
+    { t:'out', text:'7/7 checks passed — exit 0' },
+  ];
+  const bootTerm = document.getElementById('bootTerm');
+  function typeBoot() {
+    if (!bootTerm) return;
+    if (reduceMotion) {
+      bootTerm.innerHTML = bootLines.map(l => l.t==='gap' ? '<p>&nbsp;</p>' : `<p class="${l.t==='out'?'out':l.t==='ok'?'ok':''}">${l.t==='cmd' ? '<span class="prompt">$</span> '+l.text.slice(2) : l.text}</p>`).join('');
+      return;
+    }
+    let i = 0;
+    const next = () => {
+      if (i >= bootLines.length) return;
+      const l = bootLines[i];
+      const p = document.createElement('p');
+      if (l.t === 'gap') { p.innerHTML = '&nbsp;'; bootTerm.appendChild(p); i++; next(); return; }
+      if (l.t === 'cmd') {
+        p.innerHTML = '<span class="prompt">$</span> <span class="c2"></span>';
+        bootTerm.appendChild(p);
+        const span = p.querySelector('.c2');
+        const text = l.text.slice(2);
+        let c = 0;
+        const type = () => {
+          span.textContent = text.slice(0, c); c++;
+          if (c <= text.length) setTimeout(type, 16);
+          else { i++; setTimeout(next, 200); }
+        };
+        type();
+      } else {
+        p.className = l.t;
+        p.textContent = l.text;
+        bootTerm.appendChild(p);
+        i++;
+        setTimeout(next, 130);
+      }
+    };
+    next();
+  }
+  typeBoot();
+</script>
+
+</body>
+</html>
