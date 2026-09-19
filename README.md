@@ -1,13 +1,35 @@
 # Delivery Ops Analytics Pipeline
 
-A small end-to-end analytics engineering pipeline: synthetic raw delivery
-order events -> validated ELT into canonical fact/dimension tables in a SQL
-warehouse (SQLite standing in for a warehouse) -> data quality checks ->
-a self-serve Streamlit dashboard.
+A small but complete analytics engineering pipeline that takes raw, messy
+operational data (synthetic delivery order events, generated with
+deliberate flaws like duplicates, nulls, and invalid values) and turns it
+into trustworthy, decision-ready datasets. It's built to demonstrate the
+full lifecycle of working with data professionally, not just querying it.
 
-Built to mirror the core workflow of an Analytics Engineer: turn raw,
-messy operational data into trusted, canonical datasets that support
-decision-making, with data integrity checks and dashboarding on top.
+**SQL-based ELT.** Raw data is loaded into a warehouse (SQLite standing in
+for something like Snowflake or BigQuery) and transformed with SQL window
+functions, joins, and aggregations, deduplicating records, filtering out
+invalid rows, and building clean fact and dimension tables at a
+well-defined grain. This is the core skill of designing canonical
+datasets: a single source of truth other tables and reports build on,
+instead of everyone re-deriving their own version of the same numbers.
+
+**Automated data quality validation.** Seven declarative checks (built in
+the same pattern as tools like Great Expectations or Pydeequ) verify
+uniqueness, referential integrity, null-rate thresholds, and plausible
+value ranges. This is the discipline of proving data is correct before
+anyone relies on it, in a way that's repeatable and CI-ready rather than
+a one-time manual check.
+
+**A self-serve dashboard.** Built in Streamlit on top of the validated
+data, surfacing the metrics a business team would actually care about
+(order volume, revenue, delivery times, on-time rates) with region-level
+filtering. This closes the loop from raw data to something non-technical
+stakeholders can use themselves.
+
+Together, the project spans the full analytics engineering stack:
+transforming raw data with SQL, validating it rigorously, and delivering
+it in a form other people can act on.
 
 ## Architecture
 
@@ -42,8 +64,8 @@ raw_orders.csv (raw, messy event data)
   on failure so it's CI-pipeline-ready.
 - **Dashboarding**: `dashboard.py` is a self-serve Streamlit app reading
   only from the canonical daily-region mart, with filters and headline
-  metrics, showing the "insights teams can self-serve" layer the role
-  calls for.
+  metrics, letting non-technical stakeholders explore results themselves
+  instead of requesting a custom report each time.
 
 ## Run it
 
